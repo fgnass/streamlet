@@ -74,6 +74,9 @@ After each push to `main`, a GitHub Action keeps a release pull request up to da
 with the next version and the changelog. Merge it to publish the release. A second
 job then builds the app on macOS and attaches `Streamlet.zip` to it.
 
+To be reminded of unreleased changes when you push, turn on the hook in `.githooks`
+once per clone: `git config core.hooksPath .githooks`
+
 ## Contributing
 
 Issues and pull requests are welcome. To add shuffle, repeat or like for a
