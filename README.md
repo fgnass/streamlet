@@ -66,6 +66,14 @@ example a Developer ID. Otherwise `build.sh` uses a certificate named
 "Open at Startup" uses a login item and works only in the app bundle, not with
 `run.sh`.
 
+## Releases
+
+Releases are made by [release-please](https://github.com/googleapis/release-please)
+from the commit messages: `fix:` makes a patch release, `feat:` a minor release.
+After each push to `main`, a GitHub Action keeps a release pull request up to date
+with the next version and the changelog. Merge it to publish the release. A second
+job then builds the app on macOS and attaches `Streamlet.zip` to it.
+
 ## Contributing
 
 Issues and pull requests are welcome. To add shuffle, repeat or like for a
