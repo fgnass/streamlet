@@ -1,0 +1,22 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:streamlet}",
+      "name": "Debug Streamlet",
+      "program": "${workspaceFolder:streamlet}/.build/debug/Streamlet",
+      "preLaunchTask": "swift: Build Debug Streamlet"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:streamlet}",
+      "name": "Release Streamlet",
+      "program": "${workspaceFolder:streamlet}/.build/release/Streamlet",
+      "preLaunchTask": "swift: Build Release Streamlet"
+    }
+  ]
+}
