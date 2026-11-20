@@ -32,55 +32,73 @@
     });
   });
 
-  // The icon's build-up: 55 frames from Blender, played once when they are loaded.
-  // After that, the scroll position picks the frame: scrolling down takes the
-  // icon apart again, scrolling up builds it up.
+  // The icon's build-up: 55 frames from Blender. The hero plays them once when
+  // they are loaded. The icon in the install section builds up while it scrolls
+  // into view.
   const FRAMES = 55, FPS = 30;
-  const flight = document.querySelector(".flight");
-  const canvas = document.getElementById("flight");
-  const hero = document.querySelector(".hero");
-  const ctx = canvas.getContext && canvas.getContext("2d");
-  if (ctx && !reduceMotion) {
-    const images = [];
-    let current = 0, intro = 0, ready = false, scrollRaf = 0;
-    const draw = (frame) => {
+  // Frames 49 to 55 are the same, and the animation slows down a lot before them.
+  const SETTLED = 48;
+  const images = [];
+  const painter = (canvas) => {
+    const ctx = canvas.getContext && canvas.getContext("2d");
+    let current = 0;
+    return ctx && ((frame) => {
       if (frame === current) return;
       current = frame;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(images[frame - 1], 0, 0, canvas.width, canvas.height);
-    };
-    // Frame for the scroll position: the whole icon at the top, all parts
-    // gone when the hero has scrolled out of view.
-    // Frames 49 to 55 are the same, and the animation slows down a lot before
-    // them. So scrolling starts at frame 48, and the curve makes the first
-    // pixels of scrolling move the parts visibly.
-    const SETTLED = 48;
-    const frameForScroll = () => {
-      const p = Math.min(Math.max(scrollY / hero.offsetHeight, 0), 1);
-      return p === 0 ? FRAMES : Math.round(SETTLED - Math.pow(p, 0.6) * (SETTLED - 1));
-    };
-    const play = () => {
+    });
+  };
+  const flight = document.querySelector(".flight");
+  const drawHero = painter(document.getElementById("flight"));
+  const build = document.querySelector(".install-icon");
+  const drawBuild = build && painter(build.querySelector("canvas"));
+  if (drawHero && drawBuild && !reduceMotion) {
+    const playIntro = () => {
       const start = performance.now();
       const step = (now) => {
         const frame = Math.min(FRAMES, 1 + Math.floor(((now - start) / 1000) * FPS));
-        // The intro ends when it reaches the frame of the scroll position.
-        const target = frameForScroll();
-        if (frame >= target) { intro = 0; draw(target); return; }
-        draw(frame);
-        intro = requestAnimationFrame(step);
+        drawHero(frame);
+        if (frame < FRAMES) requestAnimationFrame(step);
       };
-      draw(1);
+      drawHero(1);
       flight.classList.add("live");
-      intro = requestAnimationFrame(step);
+      requestAnimationFrame(step);
     };
-    addEventListener("scroll", () => {
-      if (!ready || intro || scrollRaf) return;
-      scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; draw(frameForScroll()); });
-    }, { passive: true });
+    // The build-up starts when the icon's center enters the screen at the bottom,
+    // and ends when it is at the middle of the screen (or the page ends before).
+    const frameForScroll = () => {
+      const r = build.getBoundingClientRect();
+      const center = r.top + r.height / 2 + scrollY;
+      const from = center - innerHeight;
+      const to = Math.min(center - innerHeight * 0.5, document.documentElement.scrollHeight - innerHeight);
+      const p = Math.min(Math.max((scrollY - from) / (to - from), 0), 1);
+      return p === 1 ? FRAMES : 1 + Math.round(p * (SETTLED - 1));
+    };
+    let ready = false, buildRaf = 0;
+    const updateBuild = () => {
+      if (!ready || buildRaf) return;
+      buildRaf = requestAnimationFrame(() => { buildRaf = 0; drawBuild(frameForScroll()); });
+    };
+    addEventListener("scroll", updateBuild, { passive: true });
+    addEventListener("resize", updateBuild);
     let loaded = 0;
     for (let i = 1; i <= FRAMES; i++) {
       const img = new Image();
-      img.onload = () => { if (++loaded === FRAMES) { ready = true; play(); } };
+      img.onload = () => {
+        if (++loaded < FRAMES) return;
+        ready = true;
+        // The intro plays when the hero is on screen, also after a reload
+        // that restores a scroll position further down.
+        const io = new IntersectionObserver(([entry]) => {
+          if (!entry.isIntersecting) return;
+          io.disconnect();
+          playIntro();
+        });
+        io.observe(flight);
+        drawBuild(frameForScroll());
+        build.classList.add("live");
+      };
       img.src = `assets/flight/${String(i).padStart(3, "0")}.webp`;
       images.push(img);
     }

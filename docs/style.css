@@ -546,7 +546,18 @@ b, strong { font-weight: 700; }
   display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px clamp(32px, 6vw, 88px); align-items: start;
    padding: var(--section) var(--edge);
 }
-.install-icon { grid-row: 1 / span 4; width: clamp(120px, 17vw, 220px); height: auto; filter: drop-shadow(0 22px 26px rgba(23, 11, 7, 0.4)); }
+/* The icon builds up while it scrolls into view. The tile takes half of the canvas. */
+.install-icon { position: relative; grid-row: 1 / span 4; width: clamp(120px, 17vw, 220px); aspect-ratio: 1; }
+.install-icon img, .install-icon canvas { filter: drop-shadow(0 22px 26px rgba(23, 11, 7, 0.4)); }
+.install-icon img { display: block; width: 100%; height: 100%; }
+.install-icon canvas {
+  position: absolute; left: -50%; top: -50%; width: 200%; height: 200%; max-width: none;
+  pointer-events: none; opacity: 0;
+  -webkit-mask-image: radial-gradient(closest-side, #000 80%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 80%, transparent 100%);
+}
+.install-icon.live canvas { opacity: 1; }
+.install-icon.live img { opacity: 0; }
 .install ::selection { background: var(--ink); color: #fff; }
 .install :focus-visible { outline-color: var(--ink); }
 .install > :not(.install-icon) { grid-column: 2; }
