@@ -8,24 +8,34 @@
   Streamlet loads its audio as a live stream. While the stream plays, Streamlet sends the
   current track on its own channel. This page shows the track (Google Home app, TV) without
   loading the stream again. Play, pause, next and previous go back to Streamlet.
+  The page keeps the delay of the live stream short: it skips ahead when too much audio
+  waits in the buffer.
 -->
 <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 <style>
-  html, body { margin: 0; height: 100%; background: #111; }
-  cast-media-player {
-    --theme-hue: 320;
-    --progress-color: #d6409f;
-    --splash-image: none;
-  }
+  html, body { margin: 0; height: 100%; background: #111; color: #f2f2f5;
+    font-family: system-ui, sans-serif; }
+  /* Only devices with a screen show this. */
+  main { height: 100%; display: flex; align-items: center; justify-content: center; gap: 6vh; }
+  #cover { width: 40vh; height: 40vh; border-radius: 2vh; object-fit: cover; background: #222; }
+  #cover:not([src]) { visibility: hidden; }
+  h1 { font-size: 5vh; margin: 0 0 1vh; max-width: 50vw; }
+  p { font-size: 3.5vh; margin: 0; color: #9999a3; max-width: 50vw; }
 </style>
 </head>
 <body>
-<cast-media-player></cast-media-player>
+<main>
+  <img id="cover" alt="">
+  <div><h1 id="title">Streamlet</h1><p id="artist"></p></div>
+</main>
+<audio id="audio"></audio>
 <script>
   const NAMESPACE = 'urn:x-cast:com.fgnass.streamlet';
   const messages = cast.framework.messages;
   const context = cast.framework.CastReceiverContext.getInstance();
   const player = context.getPlayerManager();
+  const audio = document.getElementById('audio');
+  player.setMediaElement(audio);
 
   function trackMetadata(track) {
     const metadata = new messages.MusicTrackMediaMetadata();
@@ -36,10 +46,18 @@
     return metadata;
   }
 
+  function showTrack(track) {
+    document.getElementById('title').textContent = track.title || 'Streamlet';
+    document.getElementById('artist').textContent = track.artist || '';
+    const cover = document.getElementById('cover');
+    if (track.image) cover.src = track.image; else cover.removeAttribute('src');
+  }
+
   // Streamlet sends the current track.
   context.addCustomMessageListener(NAMESPACE, (event) => {
     const data = event.data || {};
     if (data.type !== 'track') return;
+    showTrack(data);
     const media = player.getMediaInformation();
     if (!media) return;
     media.metadata = trackMetadata(data);
@@ -75,6 +93,27 @@
   player.addEventListener(cast.framework.events.EventType.PLAYER_LOAD_COMPLETE, () => {
     player.setSupportedMediaCommands(supported, true);
   });
+
+  // The device buffers the live stream before it plays, and each stall makes the delay
+  // longer for good. Skip ahead when more audio than MAX_DELAY waits in the buffer.
+  const TARGET_DELAY = 0.5;
+  const MAX_DELAY = 1.0;
+  setInterval(() => {
+    if (audio.paused || !audio.buffered.length) return;
+    const end = audio.buffered.end(audio.buffered.length - 1);
+    const delay = end - audio.currentTime;
+    let skipped = false;
+    if (delay > MAX_DELAY) {
+      audio.currentTime = end - TARGET_DELAY;
+      skipped = true;
+    }
+    try {
+      context.sendCustomMessage(NAMESPACE, undefined,
+        { type: 'buffer', delay: Math.round(delay * 1000), skipped });
+    } catch (error) {
+      // No sender is connected.
+    }
+  }, 1000);
 
   const options = new cast.framework.CastReceiverOptions();
   options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
