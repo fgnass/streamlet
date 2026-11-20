@@ -25,6 +25,25 @@ class MediaSessionBridge {
             try { return !!el && el.tagName === 'VIDEO' && Number(el.videoWidth || 0) > 0 && Number(el.videoHeight || 0) > 0; } catch (e) { return false; }
         }
 
+        // The video to show for the playing element. Some services (for example the
+        // Spotify Canvas) play the sound in one element and show a muted, looping video
+        // in another. Then the largest visible video that plays is the one to show.
+        function videoFor(el) {
+            if (isVideo(el)) return el;
+            let best = null, bestArea = 0;
+            try {
+                document.querySelectorAll('video').forEach(function(v) {
+                    try {
+                        if (v === el || v.paused || !isVideo(v)) return;
+                        const r = v.getBoundingClientRect();
+                        const area = r.width * r.height;
+                        if (area > bestArea) { best = v; bestArea = area; }
+                    } catch (e) {}
+                });
+            } catch (e) {}
+            return best;
+        }
+
         function isAudible(el) {
             try { return !!el && !el.muted && Number(el.volume || 0) > 0; } catch (e) { return false; }
         }
@@ -209,7 +228,7 @@ class MediaSessionBridge {
                 let ct = 0, dur = 0;
                 try { ct = Number(el.currentTime || 0); } catch (e) {}
                 try { dur = (typeof el.duration === 'number' && isFinite(el.duration) && el.duration > 0) ? Number(el.duration) : 0; } catch (e) {}
-                sendUpdate({ currentTime: ct, duration: dur, video: isVideo(el) });
+                sendUpdate({ currentTime: ct, duration: dur, video: !!videoFor(el) });
             };
 
             try { el.addEventListener('play', onPlay); } catch (e) {}
@@ -523,8 +542,8 @@ class MediaSessionBridge {
         // The app calls this for the miniplayer. A protected (DRM) video gives null.
         window.__streamletVideoFrame = function(maxWidth) {
             try {
-                const el = getActiveElement();
-                if (!isVideo(el)) return null;
+                const el = videoFor(getActiveElement());
+                if (!el) return null;
                 const w = Math.max(16, Math.min(Number(maxWidth) || 480, el.videoWidth));
                 const h = Math.max(9, Math.round(w * el.videoHeight / el.videoWidth));
                 const canvas = state.frameCanvas || (state.frameCanvas = document.createElement('canvas'));

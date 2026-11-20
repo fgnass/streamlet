@@ -42,7 +42,7 @@ class PlayerState: ObservableObject {
             if serviceFaviconURL != oldValue { loadServiceIcon() }
         }
     }
-    /// True when the playing element is a video with a picture.
+    /// True when the playing element is a video with a picture, or when a video plays beside it.
     @Published var hasVideo: Bool = false
     /// The top row of pixels of the service page. The title bar of the web player shows it, stretched.
     @Published var pageEdge: NSImage? = nil
