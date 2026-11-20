@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Streamlet</title>
+<!--
+  The Google Cast receiver of Streamlet (app ID E314E16E).
+  Streamlet loads its audio as a live stream. While the stream plays, Streamlet sends the
+  current track on its own channel. This page shows the track (Google Home app, TV) without
+  loading the stream again. Play, pause, next and previous go back to Streamlet.
+-->
+<script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; }
+  cast-media-player {
+    --theme-hue: 320;
+    --progress-color: #d6409f;
+    --splash-image: none;
+  }
+</style>
+</head>
+<body>
+<cast-media-player></cast-media-player>
+<script>
+  const NAMESPACE = 'urn:x-cast:com.fgnass.streamlet';
+  const messages = cast.framework.messages;
+  const context = cast.framework.CastReceiverContext.getInstance();
+  const player = context.getPlayerManager();
+
+  function trackMetadata(track) {
+    const metadata = new messages.MusicTrackMediaMetadata();
+    metadata.title = track.title || 'Streamlet';
+    metadata.artist = track.artist || '';
+    metadata.albumName = track.album || '';
+    if (track.image) metadata.images = [new messages.Image(track.image)];
+    return metadata;
+  }
+
+  // Streamlet sends the current track.
+  context.addCustomMessageListener(NAMESPACE, (event) => {
+    const data = event.data || {};
+    if (data.type !== 'track') return;
+    const media = player.getMediaInformation();
+    if (!media) return;
+    media.metadata = trackMetadata(data);
+    player.setMediaInformation(media, true);
+  });
+
+  // The audio is a live stream of what Streamlet plays. Controls go to Streamlet,
+  // the stream itself keeps going.
+  function forward(command) {
+    context.sendCustomMessage(NAMESPACE, undefined, { type: 'command', command });
+    return null;
+  }
+  player.setMessageInterceptor(messages.MessageType.PAUSE, () => forward('playPause'));
+  player.setMessageInterceptor(messages.MessageType.PLAY, () => forward('playPause'));
+  player.setMessageInterceptor(messages.MessageType.QUEUE_UPDATE, (request) => {
+    if (request.jump > 0) return forward('next');
+    if (request.jump < 0) return forward('previous');
+    return request;
+  });
+  for (const type of ['QUEUE_NEXT', 'QUEUE_PREV']) {
+    if (messages.MessageType[type]) {
+      player.setMessageInterceptor(messages.MessageType[type],
+        () => forward(type === 'QUEUE_NEXT' ? 'next' : 'previous'));
+    }
+  }
+
+  const commands = messages.Command;
+  const supported = commands.PAUSE | commands.QUEUE_NEXT | commands.QUEUE_PREV |
+    commands.STREAM_VOLUME | commands.STREAM_MUTE;
+  player.addEventListener(cast.framework.events.EventType.PLAYER_LOAD_COMPLETE, () => {
+    player.setSupportedMediaCommands(supported, true);
+  });
+
+  const options = new cast.framework.CastReceiverOptions();
+  options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
+  options.supportedCommands = supported;
+  context.start(options);
+</script>
+</body>
+</html>
