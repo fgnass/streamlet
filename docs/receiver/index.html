@@ -52,19 +52,22 @@
     context.sendCustomMessage(NAMESPACE, undefined, { type: 'command', command });
     return null;
   }
-  player.setMessageInterceptor(messages.MessageType.PAUSE, () => forward('playPause'));
-  player.setMessageInterceptor(messages.MessageType.PLAY, () => forward('playPause'));
-  player.setMessageInterceptor(messages.MessageType.QUEUE_UPDATE, (request) => {
+  // An error here must not keep the receiver from starting (CAST_INIT_TIMEOUT).
+  function intercept(type, handler) {
+    try {
+      player.setMessageInterceptor(type, handler);
+    } catch (error) {
+      console.error('Cannot intercept', type, error);
+    }
+  }
+  intercept(messages.MessageType.PAUSE, () => forward('playPause'));
+  intercept(messages.MessageType.PLAY, () => forward('playPause'));
+  // Next and previous come as a jump in the queue.
+  intercept(messages.MessageType.QUEUE_UPDATE, (request) => {
     if (request.jump > 0) return forward('next');
     if (request.jump < 0) return forward('previous');
     return request;
   });
-  for (const type of ['QUEUE_NEXT', 'QUEUE_PREV']) {
-    if (messages.MessageType[type]) {
-      player.setMessageInterceptor(messages.MessageType[type],
-        () => forward(type === 'QUEUE_NEXT' ? 'next' : 'previous'));
-    }
-  }
 
   const commands = messages.Command;
   const supported = commands.PAUSE | commands.QUEUE_NEXT | commands.QUEUE_PREV |
