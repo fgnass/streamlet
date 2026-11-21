@@ -131,7 +131,7 @@ struct GeneralSettingsView: View {
 struct MenuBarSettingsView: View {
     @AppStorage("enableMenuBarItem") private var enableMenuBarItem = true
     @AppStorage("enableMenuBarPlayerControls") private var enableMenuBarPlayerControls = false
-    @AppStorage("menuBarIcon") private var menuBarIcon = "albumArt"
+    @AppStorage("menuBarIcon") private var menuBarIcon = "auto"
     @AppStorage("menuBarShowsProgress") private var menuBarShowsProgress = true
     @AppStorage("enablePopover") private var enablePopover = true
     @AppStorage("songInfoInMenuBar") private var songInfoInMenuBar = "always"
@@ -147,6 +147,7 @@ struct MenuBarSettingsView: View {
                 }
                 SettingRow("Icon") {
                     Picker("", selection: $menuBarIcon) {
+                        Text("Automatic").tag("auto")
                         Text("Cover").tag("albumArt")
                         Text("App icon").tag("appIcon")
                         Text("Service icon").tag("serviceIcon")

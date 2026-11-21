@@ -125,7 +125,7 @@ struct MenuBarView: View {
     let statusItem: NSStatusItem
     weak var popoverDelegate: PopoverDelegate?
     @AppStorage("enableMenuBarItem") private var enableMenuBarItem = true
-    @AppStorage("menuBarIcon") private var menuBarIcon = "albumArt"
+    @AppStorage("menuBarIcon") private var menuBarIcon = "auto"
     @AppStorage("menuBarShowsProgress") private var menuBarShowsProgress = true
     @AppStorage("songInfoInMenuBar") private var songInfoInMenuBar = "always"
     @AppStorage("songInfoDetails") private var songInfoDetails = "song"
@@ -241,8 +241,7 @@ struct MenuBarView: View {
                                     CoverView(playerState: playerState, cornerRadius: 3)
                                         .frame(width: 16, height: 16)
                                 case "appIcon":
-                                    Image(systemName: "waveform.circle.fill")
-                                        .font(.system(size: 13))
+                                    StreamletMenuBarIcon()
                                 case "serviceIcon":
                                     // Show service favicon if connected, otherwise app icon
                                     if let faviconURL = playerState.serviceFaviconURL, playerState.isConnectedToService {
@@ -253,16 +252,19 @@ struct MenuBarView: View {
                                                 .frame(width: 16, height: 16)
                                                 .clipShape(RoundedRectangle(cornerRadius: 3))
                                         } placeholder: {
-                                            Image(systemName: "waveform.circle.fill")
-                                                .font(.system(size: 13))
+                                            StreamletMenuBarIcon()
                                         }
                                     } else {
-                                        Image(systemName: "waveform.circle.fill")
-                                            .font(.system(size: 13))
+                                        StreamletMenuBarIcon()
                                     }
                                 default:
-                                    CoverView(playerState: playerState, cornerRadius: 3)
-                                        .frame(width: 16, height: 16)
+                                    // Automatic: level bars while music plays, otherwise the app icon.
+                                    if playerState.isPlaying && playerState.hasTrack {
+                                        LevelBars(playerState: playerState, barCount: 4, barWidth: 2,
+                                                  spacing: 1.5, maxHeight: 13, monochrome: true)
+                                    } else {
+                                        StreamletMenuBarIcon()
+                                    }
                                 }
                             }
                             .frame(width: 20)
@@ -343,5 +345,47 @@ struct MenuBarView: View {
         } else {
             statusItem.length = 0
         }
+    }
+}
+
+/// The S of the app icon, flat and in the color of the menu bar text.
+struct StreamletMenuBarIcon: View {
+    var body: some View {
+        StreamletLogoShape()
+            .fill(Color.primary, style: FillStyle(eoFill: true))
+            .frame(width: 16, height: 16)
+    }
+}
+
+/// The S of the app icon as a flat shape with the play triangle as a hole.
+/// The outline is point-symmetric: the second half is the first half rotated by 180°.
+/// Coordinates are in a 100 × 100 square. Fill it with the even-odd rule.
+struct StreamletLogoShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let side = min(rect.width, rect.height)
+        let origin = CGPoint(x: rect.midX - side / 2, y: rect.midY - side / 2)
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: origin.x + x / 100 * side, y: origin.y + y / 100 * side)
+        }
+        var path = Path()
+        path.move(to: p(62, 31))
+        path.addCurve(to: p(87, 21), control1: p(70.97, 30.28), control2: p(82.05, 25.95))
+        path.addCurve(to: p(80, 8), control1: p(89.83, 18.17), control2: p(85.75, 9.72))
+        path.addCurve(to: p(13, 40), control1: p(43.6, -2.92), control2: p(13, 13))
+        path.addCurve(to: p(38, 69), control1: p(13, 56), control2: p(25.23, 63.25))
+        path.addCurve(to: p(13, 79), control1: p(29.03, 69.72), control2: p(17.95, 74.05))
+        path.addCurve(to: p(20, 92), control1: p(10.17, 81.83), control2: p(14.25, 90.28))
+        path.addCurve(to: p(87, 60), control1: p(56.4, 102.92), control2: p(87, 87))
+        path.addCurve(to: p(62, 31), control1: p(87, 44), control2: p(74.77, 36.75))
+        path.closeSubpath()
+        // The play triangle, a hole with slightly rounded corners
+        path.move(to: p(41.5, 36.5))
+        path.addQuadCurve(to: p(43.57, 35.41), control: p(41.5, 34))
+        path.addLine(to: p(62.93, 48.59))
+        path.addQuadCurve(to: p(62.93, 51.41), control: p(65, 50))
+        path.addLine(to: p(43.57, 64.59))
+        path.addQuadCurve(to: p(41.5, 63.5), control: p(41.5, 66))
+        path.closeSubpath()
+        return path
     }
 }

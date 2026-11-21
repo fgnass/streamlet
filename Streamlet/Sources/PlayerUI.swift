@@ -284,6 +284,8 @@ struct LevelBars: View {
     var barWidth: CGFloat = 2.5
     var spacing: CGFloat = 2
     var maxHeight: CGFloat = 16
+    /// Bars in the color of the text, for example in the menu bar.
+    var monochrome = false
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 12, paused: !playerState.isPlaying)) { context in
@@ -291,9 +293,11 @@ struct LevelBars: View {
             HStack(alignment: .bottom, spacing: spacing) {
                 ForEach(0..<barCount, id: \.self) { i in
                     RoundedRectangle(cornerRadius: barWidth / 2)
-                        .fill(LinearGradient(
-                            colors: [playerState.palette.accent2Color, playerState.palette.accentColor],
-                            startPoint: .bottom, endPoint: .top))
+                        .fill(monochrome
+                            ? AnyShapeStyle(Color.primary)
+                            : AnyShapeStyle(LinearGradient(
+                                colors: [playerState.palette.accent2Color, playerState.palette.accentColor],
+                                startPoint: .bottom, endPoint: .top)))
                         .frame(width: barWidth, height: height(for: i, at: t))
                 }
             }
