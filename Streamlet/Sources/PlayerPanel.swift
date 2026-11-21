@@ -46,6 +46,7 @@ struct PlayerPanelView: View {
                 IconButton(systemName: "forward.end.fill", size: 15, help: "Next") { playerState.next() }
                 Spacer(minLength: 0)
                 SecondaryControls(playerState: playerState)
+                CastButton(tint: playerState.palette.accentColor)
                 IconButton(
                     systemName: "pip",
                     size: 14,

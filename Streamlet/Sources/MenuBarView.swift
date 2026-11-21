@@ -114,30 +114,6 @@ struct MenuBarControlsView: View {
                 }
             }
             .frame(height: 22)
-            .contextMenu {
-                Button("Web Player") {
-                    popoverDelegate?.openWebPlayer()
-                }
-                Button(UserDefaults.standard.bool(forKey: "showMiniPlayer") ? "Hide Miniplayer" : "Show Miniplayer") {
-                    popoverDelegate?.toggleMiniPlayer()
-                }
-                Button("Change service…") {
-                    popoverDelegate?.changeService()
-                }
-                Button("Clear Website Data…") {
-                    popoverDelegate?.clearServiceData()
-                }
-                
-                Button("Settings") {
-                    popoverDelegate?.openSettings()
-                }
-
-                Divider()
-
-                Button("Quit Streamlet") {
-                    popoverDelegate?.quitApp()
-                }
-            }
         } else {
             EmptyView()
         }
@@ -328,30 +304,6 @@ struct MenuBarView: View {
                 Spacer()
             }
             .frame(height: 22)
-            .contextMenu {
-                Button("Web Player") {
-                    popoverDelegate?.openWebPlayer()
-                }
-                Button(UserDefaults.standard.bool(forKey: "showMiniPlayer") ? "Hide Miniplayer" : "Show Miniplayer") {
-                    popoverDelegate?.toggleMiniPlayer()
-                }
-                Button("Change service…") {
-                    popoverDelegate?.changeService()
-                }
-                Button("Clear Website Data…") {
-                    popoverDelegate?.clearServiceData()
-                }
-                
-                Button("Settings") {
-                    popoverDelegate?.openSettings()
-                }
-
-                Divider()
-
-                Button("Quit Streamlet") {
-                    popoverDelegate?.quitApp()
-                }
-            }
             .onAppear {
                 updateStatusItemWidth(calculatedWidth)
             }

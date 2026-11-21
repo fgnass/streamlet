@@ -24,13 +24,15 @@ struct StreamletApp: App {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDelegate,
-    PopoverDelegate
+    PopoverDelegate, NSMenuDelegate
 {
     var statusItem: NSStatusItem!
     var controlsStatusItem: NSStatusItem!
     private var playerPanel: PlayerPanelController!
     private var miniPlayer: MiniPlayerController!
     private var notch: NotchController!
+    private var castToast: CastToastController!
+    private lazy var contextMenu = makeContextMenu()
     var settingsWindow: NSWindow?
     var streamingWindow: NSWindow?
     var playerState: PlayerState!
@@ -43,6 +45,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
         // Line-buffered output, so logs reach a redirected stdout at once.
         setvbuf(stdout, nil, _IOLBF, 0)
         PreviewRenderer.runIfRequested()
+        CastController.shared.runDebugIfRequested()
         #endif
         playerState = PlayerState()
         // Open the service from the last session again
@@ -56,11 +59,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
         openEmptyStreamingWindow()
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        // Close the media player on the cast device, so that it does not wait for the stream.
+        CastController.shared.stopAndWait()
+    }
+
     func setupMenuBar() {
         // Controls status item (no popover handling) - created first to appear on the right
         controlsStatusItem = NSStatusBar.system.statusItem(withLength: 68)
 
         if let controlsButton = controlsStatusItem.button {
+            // Left clicks go to the buttons in the view. A right click opens the menu.
+            controlsButton.target = self
+            controlsButton.action = #selector(controlsRightClicked(_:))
+            controlsButton.sendAction(on: [.rightMouseDown])
             let controlsView = MenuBarControlsView(playerState: playerState, popoverDelegate: self)
             let controlsHostingView = NSHostingView(rootView: controlsView)
             controlsButton.addSubview(controlsHostingView)
@@ -82,13 +94,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
             // Create custom menu bar view without controls
             menuBarView = MenuBarView(
                 playerState: playerState, statusItem: statusItem, popoverDelegate: self)
-            let hostingView = NSHostingView(rootView: menuBarView)
+            let hostingView = PassthroughHostingView(rootView: menuBarView)
             button.addSubview(hostingView)
 
-            // Set up mouse down action for popover
+            // A click opens the player, a right click or Control-click the menu.
             button.target = self
             button.action = #selector(menuBarButtonPressed(_:))
-            button.sendAction(on: [.leftMouseDown])
+            button.sendAction(on: [.leftMouseDown, .rightMouseDown])
 
             // Set up auto-layout constraints
             hostingView.translatesAutoresizingMaskIntoConstraints = false
@@ -104,13 +116,72 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
         playerPanel = PlayerPanelController(playerState: playerState, delegate: self)
         miniPlayer = MiniPlayerController(playerState: playerState, delegate: self)
         notch = NotchController(playerState: playerState, delegate: self)
+        CastDeviceMenu.closePanel = { [weak self] in self?.playerPanel.close() }
+        CastController.shared.attach(playerState)
+        castToast = CastToastController { [weak self] in
+            guard let button = self?.statusItem.button, let window = button.window else { return nil }
+            return window.convertToScreen(button.convert(button.bounds, to: nil))
+        }
     }
 
     @objc func menuBarButtonPressed(_ sender: NSStatusBarButton) {
-        // Control-click opens the context menu, not the player.
-        if NSApp.currentEvent?.modifierFlags.contains(.control) == true { return }
-        togglePopover()
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseDown || event?.modifierFlags.contains(.control) == true {
+            showContextMenu(for: statusItem)
+        } else {
+            togglePopover()
+        }
     }
+
+    @objc func controlsRightClicked(_ sender: NSStatusBarButton) {
+        showContextMenu(for: controlsStatusItem)
+    }
+
+    // MARK: - Context menu
+
+    /// Opens the menu below a menu bar item, like the menu of any menu bar item.
+    private func showContextMenu(for item: NSStatusItem) {
+        playerPanel?.close()
+        item.menu = contextMenu
+        item.button?.performClick(nil)
+        item.menu = nil
+    }
+
+    private func makeContextMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.delegate = self
+        func add(_ title: String, _ action: Selector) -> NSMenuItem {
+            let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
+            item.target = self
+            return item
+        }
+        _ = add("Web Player", #selector(menuOpenWebPlayer))
+        _ = add("Show Miniplayer", #selector(menuToggleMiniPlayer))
+        _ = add("Change Service…", #selector(menuChangeService))
+        if CastController.isSupported {
+            let cast = menu.addItem(withTitle: "Cast To", action: nil, keyEquivalent: "")
+            cast.submenu = CastDeviceMenu.shared.makeMenu()
+        }
+        _ = add("Clear Website Data…", #selector(menuClearServiceData))
+        _ = add("Settings…", #selector(menuOpenSettings))
+        menu.addItem(.separator())
+        _ = add("Quit Streamlet", #selector(menuQuit))
+        return menu
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === contextMenu else { return }
+        let showsMiniPlayer = UserDefaults.standard.bool(forKey: "showMiniPlayer")
+        menu.item(at: 1)?.title = showsMiniPlayer ? "Hide Miniplayer" : "Show Miniplayer"
+    }
+
+    // The menu runs in its own event loop. Actions that open windows or alerts wait for it to end.
+    @objc private func menuOpenWebPlayer() { DispatchQueue.main.async { self.openWebPlayer() } }
+    @objc private func menuToggleMiniPlayer() { toggleMiniPlayer() }
+    @objc private func menuChangeService() { DispatchQueue.main.async { self.changeService() } }
+    @objc private func menuClearServiceData() { DispatchQueue.main.async { self.clearServiceData() } }
+    @objc private func menuOpenSettings() { DispatchQueue.main.async { self.openSettings() } }
+    @objc private func menuQuit() { quitApp() }
 
     /// Opens the player panel below the menu bar item.
     func showPlayerPanel() {
@@ -381,7 +452,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
             popoverDelegate: self
         )
         
-        let hostingView = NSHostingView(rootView: menuBarView)
+        let hostingView = PassthroughHostingView(rootView: menuBarView)
         button.addSubview(hostingView)
         
         // Set up auto-layout constraints
@@ -410,6 +481,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
             }
         }
     }
+}
+
+/// Shows SwiftUI content but lets all clicks go to the view below, the menu bar button.
+final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 // Draggable title bar view overlay

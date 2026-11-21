@@ -37,12 +37,24 @@ What this means for you:
 - Shuffle and repeat appear only for services where Streamlet knows the
   buttons in the web player. At the moment this is SoundCloud.
 
+## Cast to a speaker
+
+Streamlet can send its audio to a Google Cast device, for example a Chromecast Audio
+or a Nest speaker. Click the speaker button in the player, or right-click the menu bar
+item → Cast To, and select a device. The first time, macOS asks for access to the local
+network and for permission to record Streamlet's audio.
+
+While Streamlet casts, the Mac's speakers stay silent. Streamlet records only its own
+audio (with a Core Audio process tap) and sends it as an uncompressed stream on your
+local network. The device plays it about one to three seconds later. This works with
+every service, but needs macOS 14.2 or later.
+
 ## Privacy
 
 You sign in to the service in Streamlet's window. Cookies and website data stay
 in Streamlet's WebKit data store on your Mac. Streamlet sends no data to anyone
-other than the services you open. To show the service suggestions, it loads
-their icons once from the services' websites.
+other than the services you open and the cast device you select. To show the
+service suggestions, it loads their icons once from the services' websites.
 
 To sign out of all services: menu bar item → right-click → Clear Website Data….
 

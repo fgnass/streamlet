@@ -55,6 +55,16 @@ enum PreviewRenderer {
                 .frame(width: 185 + 640, height: 32 + 60)
                 .background(Color(white: 0.35)), "notch-\(mode)", folder)
         }
+        for (name, content) in [
+            ("cast-connecting", CastToastModel.Content(symbol: nil, title: "Connecting to Wohnzimmer…")),
+            ("cast-playing", CastToastModel.Content(symbol: "hifispeaker.fill", title: "Playing on Wohnzimmer")),
+            ("cast-failed", CastToastModel.Content(symbol: "exclamationmark.triangle.fill", title: "Cannot cast to Wohnzimmer",
+                                                   detail: "The device did not start to play.")),
+        ] {
+            let model = CastToastModel()
+            model.content = content
+            render(CastToastView(model: model).padding(20).background(Color(white: 0.35)), name, folder)
+        }
         if customCover != nil { exit(0) }
         render(ServiceChooserView(playerState: PlayerState()).frame(width: 1000, height: 640), "chooser-swiftui", folder)
         renderDockIcons(folder)
