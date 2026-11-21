@@ -342,7 +342,6 @@
     const t = TRACKS[mb.track];
     // Only the player takes the accent of the cover, the field stays as it is.
     panel.dataset.track = mbItem.dataset.track = mb.track + 1;
-    mbItem.querySelector(".mb-cover").src = `assets/img/${t.cover}.webp`;
     mbItem.querySelector(".mb-title").textContent = t.title;
     panel.querySelector(".p-title").textContent = t.title;
     panel.querySelector(".p-artist").textContent = t.artist;
@@ -367,6 +366,7 @@
   };
   const mbSetPlaying = (playing) => {
     mb.playing = playing;
+    mbItem.classList.toggle("playing", playing);
     pPlay.querySelector("use").setAttribute("href", playing ? "#i-pause" : "#i-play");
     pPlay.setAttribute("aria-label", playing ? "Pause" : "Play");
   };

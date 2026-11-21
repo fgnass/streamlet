@@ -237,7 +237,23 @@ b, strong { font-weight: 700; }
 .macbar-item:hover { background: rgba(255, 255, 255, 0.12); }
 .macbar-item[aria-expanded="true"] { background: rgba(255, 255, 255, 0.24); }
 .macbar-item:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.macbar-item img { width: 18px; height: 18px; border-radius: 4px; }
+/* The icon of the menu bar item, as in the app: level bars while music plays, otherwise the S */
+.mb-icon { position: relative; width: 18px; height: 18px; display: grid; place-items: center; }
+.mb-logo { width: 18px; height: 18px; color: #fff; display: none; }
+.mb-bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+.mb-bars i { width: 2.5px; height: 100%; border-radius: 2px; background: #fff; transform-origin: bottom; animation: mb-level 0.9s ease-in-out infinite alternate; }
+.mb-bars i:nth-child(1) { animation-duration: 0.71s; animation-delay: -0.3s; }
+.mb-bars i:nth-child(2) { animation-duration: 0.53s; animation-delay: -0.1s; }
+.mb-bars i:nth-child(3) { animation-duration: 0.83s; animation-delay: -0.5s; }
+.mb-bars i:nth-child(4) { animation-duration: 0.61s; animation-delay: -0.2s; }
+.macbar-item:not(.playing) .mb-bars { display: none; }
+.macbar-item:not(.playing) .mb-logo { display: block; }
+@keyframes mb-level { from { transform: scaleY(0.22); } to { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .mb-bars i { animation: none; }
+  .mb-bars i:nth-child(1) { transform: scaleY(0.5); } .mb-bars i:nth-child(2) { transform: scaleY(0.85); }
+  .mb-bars i:nth-child(3) { transform: scaleY(0.65); } .mb-bars i:nth-child(4) { transform: scaleY(0.4); }
+}
 .macbar-progress { position: absolute; left: 9px; right: 9px; bottom: 2px; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
 .macbar-progress i { display: block; width: calc(var(--p, 0) * 100%); height: 100%; background: var(--acc); transition: background-color 0.6s; }
 .macbar-sys { width: 19px; height: 13px; fill: none; stroke: #fff; stroke-width: 1.7; stroke-linecap: round; }
