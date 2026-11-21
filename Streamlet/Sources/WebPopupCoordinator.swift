@@ -21,7 +21,7 @@ final class WebPopupCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         }
 
         DispatchQueue.main.async {
-            NSApp.setActivationPolicy(.regular)
+            (NSApp.delegate as? AppDelegate)?.showInDock()
             NSApp.activate(ignoringOtherApps: true)
             if let window = webView.window ?? self.windows[entry.id] {
                 window.makeKeyAndOrderFront(nil)
@@ -102,7 +102,7 @@ final class WebPopupCoordinator: NSObject, ObservableObject, NSWindowDelegate {
         panel.contentView = hostingView
 
         windows[entry.id] = panel
-        NSApp.setActivationPolicy(.regular)
+        (NSApp.delegate as? AppDelegate)?.showInDock()
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeFirstResponder(entry.webView)

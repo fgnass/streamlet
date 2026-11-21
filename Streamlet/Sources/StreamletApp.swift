@@ -39,6 +39,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
     var menuBarView: MenuBarView!
     var webViewController: WebViewController?
     private var cancellables = Set<AnyCancellable>()
+    /// The dock icon for the open service, or nil for the app icon of the bundle.
+    private var dockIcon: NSImage?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -217,7 +219,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
         playerPanel?.close()
 
         // Transform to regular app temporarily to allow window activation
-        NSApp.setActivationPolicy(.regular)
+        showInDock()
 
         // Reuse existing window or create new one
         if settingsWindow == nil {
@@ -251,7 +253,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
         // Check if streaming window already exists
         if let existingWindow = streamingWindow {
             // Window exists, just bring it to front
-            NSApp.setActivationPolicy(.regular)
+            showInDock()
             existingWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         } else {
@@ -330,14 +332,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
     func openEmptyStreamingWindow() {
         // If window already exists, just show it
         if let existingWindow = streamingWindow {
-            NSApp.setActivationPolicy(.regular)
+            showInDock()
             existingWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
         
         // Switch to regular app to show window
-        NSApp.setActivationPolicy(.regular)
+        showInDock()
         
         // Create streaming window with titled style (hidden/transparent title bar)
         // Web players are made for wide browser windows: start wide, but fit the screen.
@@ -432,9 +434,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
         
         // The dock icon shows the icon of the open service on the app icon tile.
         playerState.$serviceIcon
+            .combineLatest(playerState.$isConnectedToService)
             .receive(on: RunLoop.main)
-            .sink { [weak self] icon in
-                self?.updateDockIcon(serviceIcon: icon)
+            .sink { [weak self] icon, isConnected in
+                self?.updateDockIcon(serviceIcon: isConnected ? icon : nil)
             }
             .store(in: &cancellables)
     }
@@ -465,20 +468,39 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, PlayerDele
     }
     
     func updateDockIcon(serviceIcon: NSImage?) {
-        // Only update dock icon when app is in regular mode (not menu bar only)
-        guard NSApp.activationPolicy() == .regular else { return }
-        guard let serviceIcon, playerState.isConnectedToService else {
-            // The app icon of the bundle
-            NSApp.applicationIconImage = nil
+        guard let serviceIcon else {
+            setDockIcon(nil)
             return
         }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let image = DockIcon.make(serviceIcon: serviceIcon)
             DispatchQueue.main.async {
                 // Ignore the result when the service changed in the meantime.
-                guard let self, self.playerState.serviceIcon === serviceIcon else { return }
-                NSApp.applicationIconImage = image
+                guard let self, self.playerState.serviceIcon === serviceIcon,
+                      self.playerState.isConnectedToService else { return }
+                self.setDockIcon(image)
             }
+        }
+    }
+
+    private func setDockIcon(_ image: NSImage?) {
+        dockIcon = image
+        if NSApp.activationPolicy() == .regular {
+            NSApp.applicationIconImage = image
+        }
+    }
+
+    /// Shows the app in the dock. The dock forgets a custom icon while the app is
+    /// not in the dock, so set the icon of the service again.
+    func showInDock() {
+        let wasInDock = NSApp.activationPolicy() == .regular
+        NSApp.setActivationPolicy(.regular)
+        guard !wasInDock else { return }
+        NSApp.applicationIconImage = dockIcon
+        // The dock adds the tile asynchronously and can show the bundle icon first.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, NSApp.activationPolicy() == .regular else { return }
+            NSApp.applicationIconImage = self.dockIcon
         }
     }
 }
